@@ -8,6 +8,8 @@ import {SignatureChecker} from "openzeppelin/utils/cryptography/SignatureChecker
 import {ECDSA} from "openzeppelin/utils/cryptography/ECDSA.sol";
 import {Address} from "openzeppelin/utils/Address.sol";
 
+error InvalidSignature();
+
 contract ReqCash is EIP712 {
     using Address for address payable;
 
@@ -50,7 +52,7 @@ contract ReqCash is EIP712 {
 
     // Pay ERC-20 token with a memo using permit
     function pay(address token, uint256 value, address payee, string calldata memo, bytes memory permit) public {
-        require(permit.length == 65, "ReqCash: invalid permit");
+        if (permit.length != 65) revert InvalidSignature();
         bytes32 r;
         bytes32 s;
         uint8 v;
@@ -79,7 +81,7 @@ contract ReqCash is EIP712 {
             keccak256(abi.encode(_REQUEST_TYPEHASH, requestId, msg.value, payee, keccak256(bytes(memo))))
         );
 
-        require(SignatureChecker.isValidSignatureNow(payee, digest, signature), "ReqCash: invalid signature");
+        if (!SignatureChecker.isValidSignatureNow(payee, digest, signature)) revert InvalidSignature();
 
         emit Payment(requestId, address(0), msg.value, payee, msg.sender, memo);
         payee.sendValue(msg.value);
@@ -108,7 +110,7 @@ contract ReqCash is EIP712 {
             )
         );
 
-        require(SignatureChecker.isValidSignatureNow(requestor, digest, signature), "ReqCash: invalid signature");
+        if (!SignatureChecker.isValidSignatureNow(requestor, digest, signature)) revert InvalidSignature();
 
         emit Payment(requestId, token, value, requestor, msg.sender, memo);
         erc20.transferFrom(msg.sender, requestor, value);
